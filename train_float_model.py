@@ -23,12 +23,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 超参数
 BATCH_SIZE = 256      # batchsize
-EPOCHS = 1            # 训练轮次
+EPOCHS = 100            # 训练轮次
 INIT_LR = 1e-2        # Adam初始学习率
-WEIGHT_DECAY = 5e-4   # 权重衰减系数
+WEIGHT_DECAY = 5e-3   # 权重衰减系数
 MIN_LR = 1e-3         # 最小学习率
-# WARMUP_EPOCHS = 5    # 学习率热身轮次
-WARMUP_EPOCHS = 0
+WARMUP_EPOCHS = 5    # 学习率热身轮次
 
 def main(load_weight_path = None):
     print("using device: ", DEVICE)
@@ -61,7 +60,7 @@ def main(load_weight_path = None):
             # 第一阶段：线性warmup
             optim.lr_scheduler.LinearLR(
                 optimizer,
-                start_factor=1e-6,
+                start_factor=1e-3,
                 end_factor=1.0,
                 total_iters=WARMUP_EPOCHS
             ),
