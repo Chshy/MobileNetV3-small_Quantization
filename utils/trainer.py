@@ -130,7 +130,8 @@ class Trainer:
             enumerate(self.train_loader),
             total=len(self.train_loader),
             desc=f"Epoch {epoch+1}/{self.epochs}",
-            leave=False
+            # leave=False
+            leave=True
         )
         
         for batch_idx, (inputs, targets) in progress_bar:
@@ -165,17 +166,33 @@ class Trainer:
         total_loss = 0.0
         correct = 0
         total = 0
+
+        progress_bar = tqdm(
+            enumerate(data_loader),
+            total=len(data_loader),
+            desc="Validating",
+            leave=True
+        )
         
         with torch.no_grad():
-            for inputs, targets in data_loader:
+            for batch_idx, (inputs, targets) in progress_bar:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, targets)
                 
                 total_loss += loss.item()
                 _, predicted = outputs.max(1)
-                total += targets.size(0)
+                batch_total = targets.size(0)
+                total += batch_total
                 correct += predicted.eq(targets).sum().item()
+                
+                # 更新进度条显示
+                avg_loss = total_loss / (batch_idx + 1)
+                current_acc = 100. * correct / total
+                progress_bar.set_postfix({
+                    "loss": f"{avg_loss:.4f}",
+                    "acc": f"{current_acc:.2f}%"
+                })
         
         return total_loss/len(data_loader), 100.*correct/total
 
