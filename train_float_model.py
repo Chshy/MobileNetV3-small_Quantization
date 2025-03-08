@@ -43,7 +43,8 @@ MIN_LR = 1e-5
 WARMUP_EPOCHS = 5
 
 def main(load_weight_path = None):
-    print("using device: ", DEVICE)
+    print("Using device: ", DEVICE)
+    print("Available GPUs:", torch.cuda.device_count())
 
     # 获取数据集
     train_set, val_set, test_set = get_dataset("ImageNet1k_64")
@@ -52,14 +53,28 @@ def main(load_weight_path = None):
     # test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
     test_loader = val_loader
 
-    # 初始化模型和优化器
-    model = mobilenet_v3_small(num_classes = 1000).to(DEVICE)
+    # 初始化模型和损失函数
     criterion = nn.CrossEntropyLoss()
+    # model = mobilenet_v3_small(num_classes = 1000).to(DEVICE)
+    model = mobilenet_v3_small(num_classes = 1000)
+    
 
     # 如果有预训练权重，加载权重
     load_weight_path = "./weights/fp32.pth"
+    # if load_weight_path is not None:
+    #     model.load_state_dict(torch.load(load_weight_path, map_location=DEVICE))
     if load_weight_path is not None:
-        model.load_state_dict(torch.load(load_weight_path, map_location=DEVICE))
+        print(f"Loading weights from {load_weight_path}")
+        state_dict = torch.load(load_weight_path, map_location=DEVICE) # 直接加载到DEVICE
+        # 适配可能存在的DataParallel前缀
+        state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict)
+
+    # 多卡并行处理, 并移动模型到DEVICE
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs with DataParallel!")
+        model = nn.DataParallel(model)
+    model = model.to(DEVICE)
 
     # 初始化优化器
     optimizer = optim.AdamW(

@@ -7,6 +7,7 @@ sys.path.insert(0, project_root)
 from utils.training_visualizer import plot_training_curves
 
 import torch
+from torch import nn
 # import os
 import time
 import json
@@ -55,6 +56,9 @@ class Trainer:
         self.scheduler = scheduler
         self.save_best = save_best
         self.best_val_acc = 0.0
+
+        # 适配DataParallel模型，获取原始模型实例
+        self.raw_model = model.module if isinstance(model, nn.DataParallel) else model
 
         # 创建保存目录
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
@@ -211,7 +215,8 @@ class Trainer:
                 if self.save_best and val_acc > self.best_val_acc:
                     self.best_val_acc = val_acc
                     torch.save(
-                        self.model.state_dict(),
+                        # self.model.state_dict(),
+                        self.raw_model.state_dict(),
                         os.path.join(self.save_path, "best_model.pth")
                     )
             
@@ -235,7 +240,8 @@ class Trainer:
 
         # 保存最终模型
         torch.save(
-            self.model.state_dict(),
+            # self.model.state_dict(),
+            self.raw_model.state_dict(),
             os.path.join(self.save_path, "final_model.pth")
         )
         print(f"\nTraining complete. Models saved to {self.save_path}")
