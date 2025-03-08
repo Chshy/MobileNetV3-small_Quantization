@@ -37,10 +37,10 @@ BATCH_SIZE = 256      # batchsize
 # WARMUP_EPOCHS = 5
 
 EPOCHS = 70
-INIT_LR = 4e-4
+INIT_LR = 1e-3
 WEIGHT_DECAY = 1e-2
-MIN_LR = 5e-5
-WARMUP_EPOCHS = 0
+MIN_LR = 1e-5
+WARMUP_EPOCHS = 5
 
 def main(load_weight_path = None):
     print("using device: ", DEVICE)
@@ -75,7 +75,7 @@ def main(load_weight_path = None):
             # 第一阶段：线性warmup
             optim.lr_scheduler.LinearLR(
                 optimizer,
-                start_factor=1e-2,
+                start_factor=1e-6,
                 end_factor=1.0,
                 total_iters=WARMUP_EPOCHS
             ),
