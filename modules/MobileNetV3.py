@@ -201,7 +201,6 @@ def mobilenet_v3_large(num_classes=10):
         'input_channels': 3, # 输入图片的通道数
         'init_conv': {'kernel': 3, 'out_channels': 16, 'use_se': False, 'use_hs': True, 'stride': 2},
         'blocks': [
-            # expansion, out_channels, kernel, stride, se_ratio, use_hs
             {'kernel': 3, 'exp_size':16, 'out_channels': 16, 'use_se': False, 'use_hs': False, 'stride': 1},
             {'kernel': 3, 'exp_size':64, 'out_channels': 24, 'use_se': False, 'use_hs': False, 'stride': 2},
             {'kernel': 3, 'exp_size':72, 'out_channels': 24, 'use_se': False, 'use_hs': False, 'stride': 1},
@@ -228,7 +227,6 @@ def mobilenet_v3_small(num_classes=10):
         'input_channels': 3,
         'init_conv': {'kernel': 3, 'out_channels': 16, 'use_se': False, 'use_hs': True, 'stride': 2},
         'blocks': [
-            # expansion, out_channels, kernel, stride, se_ratio, use_hs
             {'kernel': 3, 'exp_size':16, 'out_channels': 16, 'use_se': True, 'use_hs': False, 'stride': 2},
             {'kernel': 3, 'exp_size':72, 'out_channels': 24, 'use_se': False, 'use_hs': False, 'stride': 2},
             {'kernel': 3, 'exp_size':88, 'out_channels': 24, 'use_se': False, 'use_hs': False, 'stride': 1},

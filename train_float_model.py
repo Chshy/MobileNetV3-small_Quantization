@@ -1,46 +1,53 @@
 import os
-# import sys
-# current_script_path = os.path.abspath(__file__)
-# project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_script_path)))
-# sys.path.insert(0, project_root)
-
-from data_loader import get_dataset
-# from models.MobileNetV3 import mobilenet_v3_small
-from modules.MobileNetV3 import mobilenet_v3_small
-
-from utils.trainer import Trainer
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+from data_loader import get_dataset
+from modules.MobileNetV3 import MobileNetV3
+from utils.trainer import Trainer
+
+
 # 超参数
-# BATCH_SIZE = 64
-# LEARNING_RATE = 0.001
-# EPOCHS = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+NUM_GPUS = torch.cuda.device_count()
 
-# 超参数
-BATCH_SIZE = 256      # batchsize
-# EPOCHS = 100            # 训练轮次
-# INIT_LR = 1e-2        # Adam初始学习率
-# WEIGHT_DECAY = 5e-3   # 权重衰减系数
-# MIN_LR = 1e-3         # 最小学习率
-# WARMUP_EPOCHS = 5    # 学习率热身轮次
+BASE_BATCH_SIZE = 512
+BATCH_SIZE = BASE_BATCH_SIZE * NUM_GPUS
+
+BASE_LR = 1e-3
+SCALED_LR = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE) ** 0.5
+INIT_LR = SCALED_LR  # 最终初始学习率
+WARMUP_EPOCHS = 5    # 保持 warmup
+MIN_LR = 1e-5        # 最小学习率保持
+
+WEIGHT_DECAY = 5e-4  # 从 1e-2 降低，避免过度正则化
+
+EPOCHS = 150
 
 
-# EPOCHS = 50
-# INIT_LR = 1e-2
-# WEIGHT_DECAY = 1e-2
-# MIN_LR = 1e-3
-# WARMUP_EPOCHS = 5
-
-EPOCHS = 70
-INIT_LR = 1e-3
-WEIGHT_DECAY = 1e-2
-MIN_LR = 1e-5
-WARMUP_EPOCHS = 5
+def get_custom_mobilenet_model(num_classes=1000):
+    config = {
+        'input_channels': 3,
+        'init_conv': {'kernel': 3, 'out_channels': 16, 'use_se': False, 'use_hs': True, 'stride': 1, 'padding': 1},
+        'blocks': [
+            {'kernel':3, 'exp_size':16,  'out_channels':16, 'use_se':True,  'use_hs':False, 'stride':2},
+            {'kernel':3, 'exp_size':72,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':2},
+            {'kernel':3, 'exp_size':88,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':1},
+            {'kernel':5, 'exp_size':96,  'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':2},
+            {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':120, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':144, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':288, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+            {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+        ],
+        'final_conv': { 'kernel': 1, 'out_channels': 512, 'use_se': True, 'use_hs': True, 'stride': 1},
+        'classifier_hidden_dim': 512
+    }
+    return MobileNetV3(config, num_classes=num_classes)
 
 def main(load_weight_path = None):
     print("Using device: ", DEVICE)
@@ -55,20 +62,16 @@ def main(load_weight_path = None):
 
     # 初始化模型和损失函数
     criterion = nn.CrossEntropyLoss()
-    # model = mobilenet_v3_small(num_classes = 1000).to(DEVICE)
-    model = mobilenet_v3_small(num_classes = 1000)
+    model = get_custom_mobilenet_model(num_classes = 1000)
     
-
     # 如果有预训练权重，加载权重
     load_weight_path = "./weights/fp32.pth"
-    # if load_weight_path is not None:
-    #     model.load_state_dict(torch.load(load_weight_path, map_location=DEVICE))
     if load_weight_path is not None:
         print(f"Loading weights from {load_weight_path}")
         state_dict = torch.load(load_weight_path, map_location=DEVICE) # 直接加载到DEVICE
         # 适配可能存在的DataParallel前缀
         state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, strict = False)
 
     # 多卡并行处理, 并移动模型到DEVICE
     if torch.cuda.device_count() > 1:
@@ -116,7 +119,6 @@ def main(load_weight_path = None):
         val_loader=val_loader,
         test_loader=test_loader,
         scheduler=scheduler,
-        # scheduler=None,
         save_best=True,
         save_dir = "./runs",
         experiment_name = "TrainFP32"
