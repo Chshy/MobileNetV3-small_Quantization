@@ -1,0 +1,28 @@
+{
+    "input_quant": {"act_num_bits": 8, "act_symmetric":false, "act_signed": false},
+    "init_conv": {
+        "weight_num_bits": 8, "weight_symmetric":true, "weight_signed": true, 
+        "act_num_bits": 8, "act_symmetric":false, "act_signed": false
+    },
+    "blocks": [
+
+
+    ],
+    
+    "final_conv": {
+        "weight_num_bits": 8, "weight_symmetric":true, "weight_signed": true, 
+        "act_num_bits": 8, "act_symmetric":false, "act_signed": false
+    },
+    "classifier": {
+        "fc1": {
+            "weight_num_bits": 8, "weight_symmetric":true, "weight_signed": true, 
+            "bias_num_bits": 32, "bias_symmetric":true, "bias_signed": true, 
+            "act_num_bits": 8, "act_symmetric":false, "act_signed": true
+        },
+        "fc2": {
+            "weight_num_bits": 8, "weight_symmetric":true, "weight_signed": true, 
+            "bias_num_bits": 32, "bias_symmetric":true, "bias_signed": true, 
+            "act_num_bits": 8, "act_symmetric":false, "act_signed": true
+        }
+    }
+}

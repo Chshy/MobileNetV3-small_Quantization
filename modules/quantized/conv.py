@@ -1,12 +1,14 @@
 import os
 import sys
-current_script_path = os.path.abspath(__file__)
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_script_path)))
-sys.path.insert(0, project_root)
+# current_script_path = os.path.abspath(__file__)
+# project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_script_path)))
+# sys.path.insert(0, project_root)
 
-# from quant_modules.basic.quantize import quantize, dequantize
-# from quant_modules.basic.pseudo_quantize import pseudo_quantize
-from quant_modules.basic.calib import QuantCalibrator
+# # from quant_modules.basic.quantize import quantize, dequantize
+# # from quant_modules.basic.pseudo_quantize import pseudo_quantize
+# from quant_modules.basic.calib import QuantCalibrator
+
+from .calib import QuantCalibrator
 
 import torch
 import torch.nn as nn
@@ -20,26 +22,26 @@ import warnings
 # QAT模式: 伪量化生效，统计输入和输出
 #          权重不使用ema统计
 
-class QuantNode(nn.Module):
-    def __init__(self, act_num_bits=8, act_symmetric=True, act_signed=True):
-        super().__init__()
+# class QuantNode(nn.Module):
+#     def __init__(self, act_num_bits=8, act_symmetric=True, act_signed=True):
+#         super().__init__()
 
-        self.act_quant = QuantCalibrator(num_bits=act_num_bits, symmetric=act_symmetric, signed=act_signed, enable_ema=True)
+#         self.act_quant = QuantCalibrator(num_bits=act_num_bits, symmetric=act_symmetric, signed=act_signed, enable_ema=True)
         
-        self.enable_quant = True
-        self.enable_calib = True
+#         self.enable_quant = True
+#         self.enable_calib = True
     
-    def process_result(self, result):
-        if self.enable_calib:
-            self.act_quant.calibrate(result)
-        if self.enable_quant:
-            proc_result = self.act_quant.quantize(result)
-        else:
-            proc_result = result
-        return proc_result
+#     def process_result(self, result):
+#         if self.enable_calib:
+#             self.act_quant.calibrate(result)
+#         if self.enable_quant:
+#             proc_result = self.act_quant.quantize(result)
+#         else:
+#             proc_result = result
+#         return proc_result
     
-    def forward(self, x):
-        return self.process_result(x)
+#     def forward(self, x):
+#         return self.process_result(x)
 
 
 
@@ -85,7 +87,8 @@ class BaseQuantConv2d(nn.Conv2d):
         
         # 初始化量化器
         self.weight_quant = QuantCalibrator(num_bits=weight_num_bits, symmetric=weight_symmetric, signed=weight_signed, enable_ema=False)
-        self.bias_quant = QuantCalibrator(num_bits=bias_num_bits, symmetric=bias_symmetric, signed=bias_signed, enable_ema=False)
+        if self.bias is not None:
+            self.bias_quant = QuantCalibrator(num_bits=bias_num_bits, symmetric=bias_symmetric, signed=bias_signed, enable_ema=False)
         self.act_quant = QuantCalibrator(num_bits=act_num_bits, symmetric=act_symmetric, signed=act_signed, enable_ema=True)
         
         self.enable_quant = True
@@ -188,6 +191,28 @@ class QuantConv2dBnAct(BaseQuantConv2d):
         
         self.activation = activation
 
+        # debuf
+        # print(f"BaseQuantConv2d: in_channels={self.in_channels}, out_channels={self.out_channels}, kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding}, dilation={self.dilation}, groups={self.groups}, bias={self.bias is not None}, bn={self.bn is not None}, activation={self.activation is not None}")
+        
+        bias = getattr(self, "bias_quant", None)
+        bias_bits = bias.num_bits if bias else "N/A"
+        bias_sym = "T" if bias and bias.symmetric else "N"
+        bias_sign = "S" if bias and bias.signed else "N"
+
+        print(
+            f"BaseQuantConv2d: W: {self.weight_quant.num_bits} "
+            f"{'T' if self.weight_quant.symmetric else 'F'} "
+            f"{'S' if self.weight_quant.signed else 'U'}, "
+            
+            f"B: {bias_bits} {bias_sym} {bias_sign}, "
+            
+            f"A: {self.act_quant.num_bits} "
+            f"{'T' if self.act_quant.symmetric else 'F'} "
+            f"{'S' if self.act_quant.signed else 'U'}"
+        )
+
+
+
     def forward(self, x):
         proc_weight, proc_bias = self.process_weight()
         result = F.conv2d(x, proc_weight, proc_bias, self.stride, self.padding, self.dilation, self.groups)
@@ -195,24 +220,3 @@ class QuantConv2dBnAct(BaseQuantConv2d):
         if self.activation is not None:
             result = self.activation(result)
         return self.process_result(result)
-
-
-# # # # # # # # # 以下是用于测试的版本，带观测 # # # # # # # # # 
-
-# class QuantConv2dAct_obs(QuantConv2d):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.obs = True
-
-#         self.observed_input = None
-#         self.observed_weight = None
-#         self.observed_bias = None
-#         self.observed_conv_output = None
-#         self.observed_activation = None
-#         self.observed_output = None
-
-#     def forward(self, x):
-#         proc_weight, proc_bias = self.process_weight()
-#         result = F.conv2d(x, proc_weight, proc_bias, self.stride, self.padding, self.dilation, self.groups)
-#         return self.process_result(result)
-
