@@ -73,6 +73,10 @@ class QuantBaseModule(nn.Module):
         """
         print("\nQuantization Parameters:")
         for name, module in self.named_modules():
+            # print(f"{name}")
+            # print(getattr(module, f"weight_quant", None))
+            # print(getattr(module, f"bias_quant", None))
+            # print(getattr(module, f"act_quant", None))
             params = []
             
             # 收集各量化器参数
@@ -83,7 +87,8 @@ class QuantBaseModule(nn.Module):
                     params.append(f"{qtype.upper()}: scale={scale:.6f} zp={zp:.2f}")
             
             if params:
-                print(f"[{name}]")
+                # print(f"[{name}]")
+                print(f"[{name}]", end="")
                 if verbose:
                     config = []
                     if hasattr(module, 'num_bits'):

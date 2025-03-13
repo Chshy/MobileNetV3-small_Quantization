@@ -18,7 +18,6 @@ class QuantMobileNetV3(QuantBaseModule):
         super().__init__()
         self.quant_params = quant_params or {}
         layers = []
-        # TODO 输入原始数据量化
         
         # 构建量化卷积块的辅助函数
         # def build_quant_conv_block(name, conv_cfg, in_ch):
@@ -54,107 +53,34 @@ class QuantMobileNetV3(QuantBaseModule):
             
             return block, conv_cfg['out_channels']
         
-        # # 输入原始数据量化
-        # input_quant_params = self.quant_params.get("input_quant", {})
-        # self.input_quant = QuantNode(**input_quant_params)
+        # 输入原始数据量化
+        input_quant_params = self.quant_params.get("input_quant", {})
+        self.input_quant = QuantNode(**input_quant_params)
 
-        # # 构建初始卷积层
-        # init_block, in_channels = build_quant_conv_block(
-        #     config['init_conv'],
-        #     config['input_channels'],
-        #     self.quant_params.get("init_conv", {})
-        # )
-        # layers += init_block
-
-        # # 构建中间残差块
-
-        # # 目标长度（以 config['blocks'] 的长度为例）
-        # target_length = len(config['blocks'])
-        # # 获取现有列表（若不存在则初始化为空列表）
-        # existing_blocks = self.quant_params.get("blocks", [])
-        # # 动态调整长度：截断到目标长度，不足部分补空字典
-        # adjusted_blocks = existing_blocks[:target_length] + [{}] * max(target_length - len(existing_blocks), 0)
-
-        # # for block_cfg in config['blocks']:
-        # for idx, block_cfg in enumerate(config['blocks']):
-
-        #     # 取得第 idx 个块的量化参数
-        #     quant_params = adjusted_blocks[idx]
-
-        #     layers.append(QuantInvertedResidual(
-        #         in_channels=in_channels,
-        #         out_channels=block_cfg['out_channels'],
-        #         kernel_size=block_cfg['kernel'],
-        #         stride=block_cfg['stride'],
-        #         expansion_ratio=block_cfg.get('expansion', None),
-        #         hidden_dim=block_cfg.get('exp_size', None),
-        #         use_se=block_cfg.get('use_se', False),
-        #         se_ratio=block_cfg.get('se_ratio', 0.25),
-        #         activation=nn.Hardswish if block_cfg.get('use_hs', False) else nn.ReLU,
-        #         **quant_params
-        #     ))
-        #     in_channels = block_cfg['out_channels']
-
-        # # 构建最终卷积层
-        # final_block, final_out_ch = build_quant_conv_block(
-        #     config['final_conv'],
-        #     in_channels,
-        #     self.quant_params.get("final_conv", {})
-        # )
-        # layers += final_block
-
-        ###
-
-        from .MobileNetV3 import SqueezeExcitation, InvertedResidual
-
-        # 创建卷积块的辅助函数
-        def build_conv_block(conv_cfg, in_ch):
-
-            # 创建基础卷积层
-            block = [
-                nn.Conv2d(
-                    in_ch,
-                    conv_cfg['out_channels'],
-                    kernel_size=conv_cfg['kernel'],
-                    stride=conv_cfg['stride'],
-                    padding=conv_cfg['kernel'] // 2,
-                    bias=False
-                ),
-                nn.BatchNorm2d(conv_cfg['out_channels']),
-                nn.Hardswish(inplace=False) if conv_cfg.get('use_hs', False) else nn.ReLU(inplace=False)
-            ]
-            
-            # 添加SE模块（如果需要）
-            if conv_cfg.get('use_se', False):
-                se_ratio = conv_cfg.get('se_ratio', 0.25)
-                # 注意：SE的输入通道应该是当前层的输出通道
-                squeeze_channels = _make_divisible(
-                    int(conv_cfg['out_channels'] * se_ratio), 8
-                )
-                block.append(SqueezeExcitation(
-                    conv_cfg['out_channels'],  # 修复原init_conv的通道错误
-                    squeeze_channels
-                ))
-            
-            # 返回通道信息用于后续处理
-            return block, conv_cfg['out_channels']
-        
         # 构建初始卷积层
-        init_block, in_channels = build_conv_block(
+        init_block, in_channels = build_quant_conv_block(
             config['init_conv'],
-            config['input_channels']
+            config['input_channels'],
+            self.quant_params.get("init_conv", {})
         )
         layers += init_block
-        # init_block, in_channels = build_quant_conv_block(
-        #     config['init_conv'],
-        #     config['input_channels'],
-        #     self.quant_params.get("init_conv", {})
-        # )
-        # layers += init_block
-        
+
         # 构建中间残差块
-        for block_cfg in config['blocks']:
-            layers.append(InvertedResidual(
+
+        # 目标长度（以 config['blocks'] 的长度为例）
+        target_length = len(config['blocks'])
+        # 获取现有列表（若不存在则初始化为空列表）
+        existing_blocks = self.quant_params.get("blocks", [])
+        # 动态调整长度：截断到目标长度，不足部分补空字典
+        adjusted_blocks = existing_blocks[:target_length] + [{}] * max(target_length - len(existing_blocks), 0)
+
+        # for block_cfg in config['blocks']:
+        for idx, block_cfg in enumerate(config['blocks']):
+
+            # 取得第 idx 个块的量化参数
+            quant_params = adjusted_blocks[idx]
+
+            layers.append(QuantInvertedResidual(
                 in_channels=in_channels,
                 out_channels=block_cfg['out_channels'],
                 kernel_size=block_cfg['kernel'],
@@ -163,18 +89,18 @@ class QuantMobileNetV3(QuantBaseModule):
                 hidden_dim=block_cfg.get('exp_size', None),
                 use_se=block_cfg.get('use_se', False),
                 se_ratio=block_cfg.get('se_ratio', 0.25),
-                activation=nn.Hardswish if block_cfg.get('use_hs', False) else nn.ReLU
+                activation=nn.Hardswish if block_cfg.get('use_hs', False) else nn.ReLU,
+                **quant_params
             ))
             in_channels = block_cfg['out_channels']
-        
+
         # 构建最终卷积层
-        final_block, final_out_ch = build_conv_block(
+        final_block, final_out_ch = build_quant_conv_block(
             config['final_conv'],
-            in_channels
+            in_channels,
+            self.quant_params.get("final_conv", {})
         )
         layers += final_block
-
-        ###
  
 
         self.features = nn.Sequential(*layers)
@@ -208,6 +134,8 @@ class QuantMobileNetV3(QuantBaseModule):
     def forward(self, x):
         # print(x)
         # print(f"from QuantMobileNetV3, type(x): {type(x)}")
+
+        x = self.input_quant(x)
         x = self.features(x)
         x = self.avgpool(x)
         x = x.flatten(1)
