@@ -18,35 +18,41 @@ BATCH_SIZE = BASE_BATCH_SIZE * NUM_GPUS
 
 BASE_LR = 1e-3
 SCALED_LR = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE) ** 0.5
-INIT_LR = SCALED_LR  # 最终初始学习率
-WARMUP_EPOCHS = 5    # 保持 warmup
-MIN_LR = 1e-5        # 最小学习率保持
+INIT_LR = SCALED_LR
+WARMUP_EPOCHS = 5
+MIN_LR = 1e-5
 
-WEIGHT_DECAY = 5e-4  # 从 1e-2 降低，避免过度正则化
+WEIGHT_DECAY = 5e-4
 
 EPOCHS = 150
 
+import json
 
-def get_custom_mobilenet_model(num_classes=1000):
-    config = {
-        'input_channels': 3,
-        'init_conv': {'kernel': 3, 'out_channels': 16, 'use_se': False, 'use_hs': True, 'stride': 1, 'padding': 1},
-        'blocks': [
-            {'kernel':3, 'exp_size':16,  'out_channels':16, 'use_se':True,  'use_hs':False, 'stride':2},
-            {'kernel':3, 'exp_size':72,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':2},
-            {'kernel':3, 'exp_size':88,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':1},
-            {'kernel':5, 'exp_size':96,  'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':2},
-            {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':120, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':144, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':288, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
-            {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
-        ],
-        'final_conv': { 'kernel': 1, 'out_channels': 512, 'use_se': True, 'use_hs': True, 'stride': 1},
-        'classifier_hidden_dim': 512
-    }
+def get_custom_mobilenet_model(num_classes=1000, json_file = None):
+
+    if json_file is not None:
+        with open(json_file, 'r') as f:
+            config = json.load(f)
+    else:
+        config = {
+            'input_channels': 3,
+            'init_conv': {'kernel': 3, 'out_channels': 16, 'use_se': False, 'use_hs': True, 'stride': 1, 'padding': 1},
+            'blocks': [
+                {'kernel':3, 'exp_size':16,  'out_channels':16, 'use_se':True,  'use_hs':False, 'stride':2},
+                {'kernel':3, 'exp_size':72,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':2},
+                {'kernel':3, 'exp_size':88,  'out_channels':24, 'use_se':False, 'use_hs':False, 'stride':1},
+                {'kernel':5, 'exp_size':96,  'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':2},
+                {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':240, 'out_channels':40, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':120, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':144, 'out_channels':48, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':288, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+                {'kernel':5, 'exp_size':576, 'out_channels':96, 'use_se':True,  'use_hs':True,  'stride':1},
+            ],
+            'final_conv': { 'kernel': 1, 'out_channels': 512, 'use_se': True, 'use_hs': True, 'stride': 1},
+            'classifier_hidden_dim': 512
+        }
     return MobileNetV3(config, num_classes=num_classes)
 
 def main(load_weight_path = None):
